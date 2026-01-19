@@ -1,5 +1,7 @@
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login
 from .models import Post
 from .forms import PostForm
 
@@ -57,3 +59,15 @@ def delete_post(request, post_id):
 def my_posts(request):
     posts = Post.objects.filter(user = request.user)
     return render(request, 'my_posts.html', {'posts': posts})
+
+def signup(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            return redirect('home')
+    else:
+        form = UserCreationForm()
+    
+    return render(request, 'signup.html', {'form': form})
