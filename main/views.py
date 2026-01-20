@@ -1,9 +1,15 @@
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth import login
+from django.contrib.auth.tokens import default_token_generator
+from django.contrib.auth.models import User
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.urls import reverse
+from django.http import HttpResponse
+from django.core.mail import EmailMultiAlternatives
+from django.conf import settings
 from .models import Post
-from .forms import PostForm
+from .forms import PostForm, SignUpForm
 
 def home_screen(request):
     posts = Post.objects.all()
@@ -62,12 +68,89 @@ def my_posts(request):
 
 def signup(request):
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = SignUpForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            login(request, user)
-            return redirect('home')
+            user = form.save(commit=False)
+            user.is_active = False
+            user.save()
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+
+            activation_link = request.build_absolute_uri(
+                reverse('activate', kwargs={'uidb64': uid, 'token': token})
+            )
+            
+            subject = 'Activate your account'
+            text_content = f'''Please click the link to activate your account: {activation_link}'''
+            from_email = settings.EMAIL_HOST_USER
+            recipient_list = [user.email]
+
+            html_content=f'''<p>Please click the link to activate your account:</p>
+            <a href="{activation_link}" style = "color: #1a73e8">Activate Your Account</a>'''
+            email = EmailMultiAlternatives(
+            subject,
+            text_content,
+            from_email,
+            recipient_list
+            )
+
+            email.attach_alternative(html_content, "text/html")
+            email.send()
+
+            return redirect('verification_pending', uidb64 = uid)
     else:
-        form = UserCreationForm()
+        form = SignUpForm()
     
     return render(request, 'signup.html', {'form': form})
+
+def verification_pending(request, uidb64):
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            user = None
+    if(request.method == 'POST'):
+        if user is not None:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            activation_link = request.build_absolute_uri(
+                reverse('activate', kwargs={'uidb64': uid, 'token': token})
+            )
+            
+            subject = 'Activate your account'
+            text_content = f'''Please click the link to activate your account: {activation_link}'''
+            from_email = settings.EMAIL_HOST_USER
+            recipient_list = [user.email]
+
+            html_content=f'''<p>Please click the link to activate your account:</p>
+            <a href="{activation_link}" style = "color: #1a73e8">Activate Your Account</a>'''
+            email = EmailMultiAlternatives(
+            subject,
+            text_content,
+            from_email,
+            recipient_list
+            )
+
+            email.attach_alternative(html_content, "text/html")
+            email.send()
+            return render(request, 'verification_pending.html', {'user': user})
+    
+    else:
+        return render(request, 'verification_pending.html', {'user': user})
+
+def activate_account(request, uidb64, token):
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user.is_active == False:
+        if user is not None and default_token_generator.check_token(user, token):
+            user.is_active = True
+            user.save()
+            return redirect('login')
+        else:
+            return HttpResponse('Activation link is invalid')
+    else:
+        return HttpResponse('Account already activated')

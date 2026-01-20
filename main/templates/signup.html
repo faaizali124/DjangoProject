@@ -1,6 +1,7 @@
-<h2>Sign Up</h2>
+<h1 style = "text-align: center;">Sign Up</h2>
 
-<form method="post">
+<div class = "signup-form" style = "display: flex; justify-content: center; align-items: center;">
+<form method="post" style = "justify-content: center;">
     {% csrf_token %}
 
     {{ form.non_field_errors }}
@@ -19,4 +20,5 @@
 
     <button type="submit">Sign Up</button>
 </form>
-<p>Already have an account? <a href = "{% url 'login' %}">Log In</a></p>
+</div>
+<p style = "text-align: center;">Already have an account? <a href = "{% url 'login' %}">Log In</a></p>

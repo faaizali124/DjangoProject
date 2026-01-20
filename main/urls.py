@@ -14,5 +14,7 @@ urlpatterns = [path('', views.home_screen, name = 'home'),
                path('login/', auth_views.LoginView.as_view(), name = 'login'),
                path('logout/', auth_views.LogoutView.as_view(next_page='/'), name = 'logout'),
                path('accounts/profile/', views.home_screen, name='profile'),
-               path('signup/', views.signup, name='signup')
+               path('signup/', views.signup, name='signup'),
+               path('activate/<uidb64>/<token>/', views.activate_account, name = 'activate'),
+               path('verification-pending/<uidb64>/', views.verification_pending, name='verification_pending')
                ]
